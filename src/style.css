@@ -1,0 +1,318 @@
+:root {
+  /* Color Palette - Vibrant Dark Mode */
+  --bg-color: #0f172a; /* Slate 900 */
+  --text-color: #f8fafc; /* Slate 50 */
+  --text-muted: #94a3b8; /* Slate 400 */
+  
+  --accent-primary: #3b82f6; /* Blue 500 */
+  --accent-primary-hover: #60a5fa; /* Blue 400 */
+  --accent-secondary: #8b5cf6; /* Violet 500 */
+  
+  --glass-bg: rgba(30, 41, 59, 0.7); /* Slate 800 with opacity */
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  
+  --success-color: #10b981; /* Emerald 500 */
+  --warning-color: #f59e0b; /* Amber 500 */
+  --danger-color: #ef4444; /* Red 500 */
+
+  /* Typography */
+  --font-main: 'Inter', system-ui, -apple-system, sans-serif;
+  
+  /* Layout */
+  --radius-lg: 16px;
+  --radius-md: 12px;
+  --radius-sm: 8px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-main);
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  min-height: 100vh;
+  /* subtle gradient background */
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.15) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(139, 92, 246, 0.15) 0px, transparent 50%);
+  background-attachment: fixed;
+  display: flex;
+  justify-content: center;
+  line-height: 1.5;
+}
+
+#app {
+  max-width: 800px;
+  width: 100%;
+  padding: 2rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+header {
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+header h1 {
+  font-size: 2.5rem;
+  font-weight: 700;
+  background: linear-gradient(to right, var(--accent-primary), var(--accent-secondary));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: 0.5rem;
+}
+
+header p {
+  color: var(--text-muted);
+}
+
+/* Glassmorphism Panel Base */
+.glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  box-shadow: var(--glass-shadow);
+}
+
+/* Calendar Section */
+.calendar-wrapper {
+  margin-bottom: 2rem;
+}
+
+.calendar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.calendar-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.5rem;
+}
+
+.calendar-weekday {
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  padding-bottom: 0.5rem;
+}
+
+.calendar-day {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: var(--radius-sm);
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.25rem;
+  position: relative;
+  transition: background 0.2s ease;
+  cursor: pointer;
+}
+
+.calendar-day:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.calendar-day.empty {
+  background: transparent;
+  border-color: transparent;
+  cursor: default;
+}
+
+.calendar-day.empty:hover {
+  background: transparent;
+}
+
+.calendar-day.today {
+  border-color: var(--accent-primary);
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.calendar-day.selected {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: var(--text-color);
+}
+
+.day-number {
+  font-size: 0.875rem;
+  font-weight: 500;
+  margin-bottom: auto;
+}
+
+.calendar-day.today .day-number {
+  color: var(--accent-primary-hover);
+  font-weight: 700;
+}
+
+.badges-container {
+  display: flex;
+  gap: 0.2rem;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 0.25rem;
+}
+
+.reset-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.dot-weekly {
+  background-color: var(--accent-secondary);
+  box-shadow: 0 0 4px var(--accent-secondary);
+}
+
+.dot-threeday {
+  background-color: var(--warning-color);
+  box-shadow: 0 0 4px var(--warning-color);
+}
+
+/* Checklist Section */
+.checklist-group {
+  margin-bottom: 2rem;
+}
+
+.checklist-group:last-child {
+  margin-bottom: 0;
+}
+
+.group-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.group-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.group-badge {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 9999px;
+  background: rgba(59, 130, 246, 0.2);
+  color: var(--accent-primary-hover);
+  font-weight: 500;
+}
+
+.items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* Custom Checkbox Item */
+.checklist-item {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.checklist-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--glass-border);
+}
+
+.checklist-item.read-only {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.checklist-item.read-only:hover {
+  background: rgba(255, 255, 255, 0.02);
+  border-color: transparent;
+}
+
+.checklist-item input[type="checkbox"] {
+  display: none;
+}
+
+.checkbox-custom {
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--text-muted);
+  border-radius: var(--radius-sm);
+  margin-right: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.checklist-item:hover .checkbox-custom {
+  border-color: var(--accent-primary-hover);
+}
+
+.checkbox-custom::after {
+  content: "";
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background-color: var(--success-color);
+  border-radius: 2px;
+  transform: scale(0);
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.checklist-item input[type="checkbox"]:checked + .checkbox-custom {
+  border-color: var(--success-color);
+}
+
+.checklist-item input[type="checkbox"]:checked + .checkbox-custom::after {
+  transform: scale(1);
+}
+
+.item-name {
+  font-size: 1rem;
+  color: var(--text-color);
+  transition: color 0.2s ease, text-decoration 0.2s ease;
+  flex-grow: 1;
+}
+
+.checklist-item input[type="checkbox"]:checked ~ .item-name {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s ease forwards;
+}
