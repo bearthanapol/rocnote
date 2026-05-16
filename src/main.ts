@@ -60,16 +60,13 @@ function initApp() {
       changed = true;
     }
     
-    if (now >= state.nextResetBoundaries.threeDay) {
-      state.items = applyResets(state.items, 'three-day');
-      state.nextResetBoundaries.threeDay = nextThreeDayReset(now, THREE_DAY_ANCHOR_DATE);
-      changed = true;
-    }
-    
-    if (now >= state.nextResetBoundaries.weekly) {
-      state.items = applyResets(state.items, 'weekly');
-      state.nextResetBoundaries.weekly = nextWeeklyReset(now);
-      changed = true;
+    // Check individual rolling resets
+    for (const [, itemState] of Object.entries(state.items)) {
+      if (itemState.completed && itemState.nextResetAt && now >= itemState.nextResetAt) {
+        itemState.completed = false;
+        delete itemState.nextResetAt;
+        changed = true;
+      }
     }
     
     if (changed) {
@@ -116,6 +113,17 @@ function handleToggle(id: string) {
     item.completed = !item.completed;
     item.lastChangedAt = Date.now();
     
+    if (item.completed) {
+      const activityType = getActiveActivities().find(a => a.id === id)?.type;
+      if (activityType?.startsWith('Three_Day')) {
+        item.nextResetAt = Date.now() + 72 * 3600 * 1000;
+      } else if (activityType?.startsWith('Weekly')) {
+        item.nextResetAt = Date.now() + 7 * 24 * 3600 * 1000;
+      }
+    } else {
+      delete item.nextResetAt;
+    }
+    
     // Record into history for today
     if (!state.history[todayString]) {
       state.history[todayString] = {};
@@ -124,6 +132,7 @@ function handleToggle(id: string) {
     
     StorageService.save(state);
     renderChecklist(); 
+    renderCalendar(); // Refresh calendar to update dots
   }
 }
 
@@ -265,6 +274,9 @@ function renderCalendar() {
     html += `<div class="calendar-day empty"></div>`;
   }
 
+  const activeActs = getActiveActivities();
+  const actTypeById = new Map(activeActs.map(a => [a.id, a.type]));
+
   for (let d = 1; d <= daysInMonth; d++) {
     const loopDate = new Date(year, month, d);
     const dateStr = getLocalDateString(loopDate);
@@ -276,13 +288,17 @@ function renderCalendar() {
     const localStart = new Date(year, month, d, 0, 0, 0, 0).getTime();
     const localEnd = localStart + 86400000;
     
-    // Check if the next weekly reset falls on this day
-    const weeklyBoundary = nextWeeklyReset(localStart - 1);
-    const hasWeekly = weeklyBoundary >= localStart && weeklyBoundary < localEnd;
+    let hasWeekly = false;
+    let hasThreeDay = false;
     
-    // Check if the next 3-day reset falls on this day
-    const threeDayBoundary = nextThreeDayReset(localStart - 1, THREE_DAY_ANCHOR_DATE);
-    const hasThreeDay = threeDayBoundary >= localStart && threeDayBoundary < localEnd;
+    // Check item resets
+    for (const [id, itemState] of Object.entries(state.items)) {
+      if (itemState.nextResetAt && itemState.nextResetAt >= localStart && itemState.nextResetAt < localEnd) {
+        const activityType = actTypeById.get(id);
+        if (activityType?.startsWith('Three_Day')) hasThreeDay = true;
+        if (activityType?.startsWith('Weekly')) hasWeekly = true;
+      }
+    }
     
     let badgesHtml = '';
     if (hasWeekly || hasThreeDay) {
@@ -399,16 +415,13 @@ function startTimers() {
       changed = true;
     }
     
-    if (now >= state.nextResetBoundaries.threeDay) {
-      state.items = applyResets(state.items, 'three-day');
-      state.nextResetBoundaries.threeDay = nextThreeDayReset(now, THREE_DAY_ANCHOR_DATE);
-      changed = true;
-    }
-    
-    if (now >= state.nextResetBoundaries.weekly) {
-      state.items = applyResets(state.items, 'weekly');
-      state.nextResetBoundaries.weekly = nextWeeklyReset(now);
-      changed = true;
+    // Check individual rolling resets
+    for (const [, itemState] of Object.entries(state.items)) {
+      if (itemState.completed && itemState.nextResetAt && now >= itemState.nextResetAt) {
+        itemState.completed = false;
+        delete itemState.nextResetAt;
+        changed = true;
+      }
     }
     
     if (changed) {

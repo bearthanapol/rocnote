@@ -48,6 +48,7 @@ export interface ChecklistProps {
 export interface ItemState {
   completed: boolean;
   lastChangedAt: number;
+  nextResetAt?: number;
 }
 
 export interface PersistedState {
