@@ -87,6 +87,9 @@ function validateSchema(parsed: unknown): PersistedState | null {
     version: 2,
     items: items as Record<string, ItemState>,
     history,
+    customNames: obj['customNames'] as Record<string, string> | undefined,
+    customActivities: obj['customActivities'] as import('./types').ActivityDefinition[] | undefined,
+    hiddenActivities: obj['hiddenActivities'] as string[] | undefined,
     nextResetBoundaries: {
       daily: b['daily'] as number,
       threeDay: b['threeDay'] as number,
