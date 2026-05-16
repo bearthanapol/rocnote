@@ -54,6 +54,9 @@ export interface PersistedState {
   version: 2;
   items: Record<string, ItemState>;
   history: Record<string, Record<string, boolean>>; // dateString (YYYY-MM-DD) -> itemId -> completed
+  customNames?: Record<string, string>; // activityId -> custom name
+  customActivities?: ActivityDefinition[]; // list of user-created activities
+  hiddenActivities?: string[]; // list of removed activity IDs
   nextResetBoundaries: {
     daily: number;
     threeDay: number;

@@ -19,6 +19,13 @@ function getLocalDateString(d: Date): string {
   return `${year}-${month}-${day}`;
 }
 
+function getActiveActivities() {
+  if (!state) return ACTIVITIES;
+  const hidden = state.hiddenActivities || [];
+  const custom = state.customActivities || [];
+  return [...ACTIVITIES, ...custom].filter(a => !hidden.includes(a.id));
+}
+
 let selectedDateString: string = getLocalDateString(new Date());
 
 const appEl = document.querySelector<HTMLDivElement>('#app')!;
@@ -36,6 +43,15 @@ function initApp() {
   
   if (loadedState) {
     state = loadedState;
+    if (!state.customNames) {
+      state.customNames = {};
+    }
+    if (!state.customActivities) {
+      state.customActivities = [];
+    }
+    if (!state.hiddenActivities) {
+      state.hiddenActivities = [];
+    }
     let changed = false;
     
     if (now >= state.nextResetBoundaries.daily) {
@@ -70,6 +86,9 @@ function initApp() {
       version: 2,
       items,
       history: {},
+      customNames: {},
+      customActivities: [],
+      hiddenActivities: [],
       nextResetBoundaries: {
         daily: nextDailyReset(now, tzOffset),
         threeDay: nextThreeDayReset(now, THREE_DAY_ANCHOR_DATE),
@@ -108,6 +127,53 @@ function handleToggle(id: string) {
   }
 }
 
+function handleEditName(id: string) {
+  const currentName = state.customNames?.[id] || ACTIVITIES.find(a => a.id === id)?.name || '';
+  const newName = prompt('Enter a new name for this task:', currentName);
+  
+  if (newName !== null && newName.trim() !== '') {
+    if (!state.customNames) state.customNames = {};
+    state.customNames[id] = newName.trim();
+    StorageService.save(state);
+    renderChecklist();
+  } else if (newName !== null && newName.trim() === '') {
+    // If they empty it, revert to default
+    if (state.customNames && state.customNames[id]) {
+      delete state.customNames[id];
+      StorageService.save(state);
+      renderChecklist();
+    }
+  }
+}
+
+function handleAddActivity(groupKey: string) {
+  const name = prompt('Enter a name for the new activity:');
+  if (!name || name.trim() === '') return;
+
+  const id = `custom-${Date.now()}`;
+  let type: import('./types').ActivityType = 'Daily_Quest';
+  if (groupKey === 'three-day') type = 'Three_Day_Instance';
+  if (groupKey === 'weekly') type = 'Weekly_Quest';
+
+  if (!state.customActivities) state.customActivities = [];
+  state.customActivities.push({ id, name: name.trim(), type });
+
+  // Initialize its state
+  state.items[id] = { completed: false, lastChangedAt: Date.now() };
+
+  StorageService.save(state);
+  renderChecklist();
+}
+
+function handleRemoveActivity(id: string) {
+  if (!confirm('Are you sure you want to remove this activity?')) return;
+  
+  if (!state.hiddenActivities) state.hiddenActivities = [];
+  state.hiddenActivities.push(id);
+  StorageService.save(state);
+  renderChecklist();
+}
+
 // Event delegation for checkboxes
 appEl.addEventListener('change', (e) => {
   const target = e.target as HTMLInputElement;
@@ -116,9 +182,31 @@ appEl.addEventListener('change', (e) => {
   }
 });
 
-// Event delegation for calendar dates
+// Event delegation for calendar dates and buttons
 appEl.addEventListener('click', (e) => {
   const target = e.target as HTMLElement;
+  
+  const editBtn = target.closest('.edit-name-btn');
+  if (editBtn) {
+    e.preventDefault(); // Prevent label click
+    handleEditName((editBtn as HTMLElement).dataset.id!);
+    return;
+  }
+
+  const removeBtn = target.closest('.remove-activity-btn');
+  if (removeBtn) {
+    e.preventDefault();
+    handleRemoveActivity((removeBtn as HTMLElement).dataset.id!);
+    return;
+  }
+
+  const addBtn = target.closest('.add-activity-btn');
+  if (addBtn) {
+    e.preventDefault();
+    handleAddActivity((addBtn as HTMLElement).dataset.group!);
+    return;
+  }
+  
   const dayEl = target.closest('.calendar-day');
   if (dayEl && !dayEl.classList.contains('empty')) {
     const dateStr = dayEl.getAttribute('data-date');
@@ -229,13 +317,13 @@ function renderChecklist() {
   const historyData = state.history[selectedDateString] || {};
   
   // Group activities
-  const groups: Record<string, { label: string, items: typeof ACTIVITIES }> = {
+  const groups: Record<string, { label: string, items: import('./types').ActivityDefinition[] }> = {
     'daily': { label: 'Daily', items: [] },
     'three-day': { label: '3-Day', items: [] },
     'weekly': { label: 'Weekly', items: [] }
   };
   
-  ACTIVITIES.forEach(act => {
+  getActiveActivities().forEach(act => {
     if (act.type.startsWith('Daily')) groups['daily'].items.push(act);
     else if (act.type.startsWith('Three_Day')) groups['three-day'].items.push(act);
     else if (act.type.startsWith('Weekly')) groups['weekly'].items.push(act);
@@ -251,7 +339,7 @@ function renderChecklist() {
     `;
   }
   
-  for (const [, group] of Object.entries(groups)) {
+  for (const [groupKey, group] of Object.entries(groups)) {
     if (group.items.length === 0) continue;
     
     const completedCount = group.items.filter(act => {
@@ -261,7 +349,10 @@ function renderChecklist() {
     html += `
       <div class="checklist-group">
         <div class="group-header">
-          <span class="group-title">${group.label} Activities</span>
+          <div class="group-title-container">
+            <span class="group-title">${group.label} Activities</span>
+            ${!isHistorical ? `<button class="add-activity-btn" data-group="${groupKey}" title="Add Activity">+</button>` : ''}
+          </div>
           <span class="group-badge">${completedCount} / ${group.items.length}</span>
         </div>
         <div class="items-list">
@@ -270,12 +361,19 @@ function renderChecklist() {
     group.items.forEach(act => {
       const isCompleted = isHistorical ? (historyData[act.id] || false) : (state.items[act.id]?.completed || false);
       const disabledAttr = isHistorical ? 'disabled' : '';
+      const displayName = state.customNames?.[act.id] || act.name;
       
       html += `
         <label class="checklist-item ${isHistorical ? 'read-only' : ''}">
           <input type="checkbox" class="item-checkbox" data-id="${act.id}" ${isCompleted ? 'checked' : ''} ${disabledAttr} />
           <div class="checkbox-custom"></div>
-          <span class="item-name">${act.name}</span>
+          <span class="item-name">${displayName}</span>
+          <div class="item-actions">
+            ${!isHistorical ? `
+              <button class="edit-name-btn" data-id="${act.id}" title="Edit Name">✎</button>
+              <button class="remove-activity-btn" data-id="${act.id}" title="Remove">🗑️</button>
+            ` : ''}
+          </div>
         </label>
       `;
     });

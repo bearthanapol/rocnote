@@ -308,6 +308,65 @@ header p {
 }
 
 /* Animations */
+.group-title-container {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.add-activity-btn {
+  background: rgba(59, 130, 246, 0.2);
+  color: var(--accent-primary-hover);
+  border: none;
+  border-radius: var(--radius-sm);
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.add-activity-btn:hover {
+  background: var(--accent-primary);
+  color: #fff;
+}
+
+.item-actions {
+  display: flex;
+  gap: 0.25rem;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.checklist-item:hover .item-actions {
+  opacity: 1;
+}
+
+.edit-name-btn, .remove-activity-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: var(--radius-sm);
+  transition: all 0.2s ease;
+  font-size: 1rem;
+}
+
+.edit-name-btn:hover {
+  color: var(--accent-primary-hover);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.remove-activity-btn:hover {
+  color: var(--danger-color);
+  background: rgba(239, 68, 68, 0.1);
+}
+
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
