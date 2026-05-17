@@ -12,10 +12,13 @@ import type { PersistedState, ItemState } from './types';
 // Global App State
 let state: PersistedState;
 
-function getLocalDateString(d: Date): string {
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
+function getGameDateString(now: number): string {
+  // Game day starts at 4:00 AM Bangkok time (UTC+7) = 21:00 UTC.
+  // To map 21:00 UTC to midnight for correct date extraction, we shift by +3 hours.
+  const d = new Date(now + 3 * 3600 * 1000);
+  const year = d.getUTCFullYear();
+  const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(d.getUTCDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
 
@@ -26,17 +29,12 @@ function getActiveActivities() {
   return [...ACTIVITIES, ...custom].filter(a => !hidden.includes(a.id));
 }
 
-let selectedDateString: string = getLocalDateString(new Date());
+let selectedDateString: string = getGameDateString(Date.now());
 
 const appEl = document.querySelector<HTMLDivElement>('#app')!;
 
-function getTimezoneOffset() {
-  return -new Date().getTimezoneOffset() * 60_000;
-}
-
 function initApp() {
   const now = Date.now();
-  const tzOffset = getTimezoneOffset();
   
   // Load existing state
   const loadedState = StorageService.load();
@@ -56,7 +54,7 @@ function initApp() {
     
     if (now >= state.nextResetBoundaries.daily) {
       state.items = applyResets(state.items, 'daily');
-      state.nextResetBoundaries.daily = nextDailyReset(now, tzOffset);
+      state.nextResetBoundaries.daily = nextDailyReset(now);
       changed = true;
     }
     
@@ -87,7 +85,7 @@ function initApp() {
       customActivities: [],
       hiddenActivities: [],
       nextResetBoundaries: {
-        daily: nextDailyReset(now, tzOffset),
+        daily: nextDailyReset(now),
         threeDay: nextThreeDayReset(now, THREE_DAY_ANCHOR_DATE),
         weekly: nextWeeklyReset(now),
       }
@@ -96,16 +94,25 @@ function initApp() {
   }
 
   // Set selected date to today initially
-  selectedDateString = getLocalDateString(new Date());
+  selectedDateString = getGameDateString(Date.now());
 
   renderApp();
   startTimers();
 }
 
 function handleToggle(id: string) {
-  const todayString = getLocalDateString(new Date());
-  if (selectedDateString !== todayString) {
-    return; // Read-only for past dates
+  const todayString = getGameDateString(Date.now());
+  const isHistorical = selectedDateString !== todayString;
+
+  if (isHistorical) {
+    if (!state.history[selectedDateString]) {
+      state.history[selectedDateString] = {};
+    }
+    const currentVal = state.history[selectedDateString][id] || false;
+    state.history[selectedDateString][id] = !currentVal;
+    StorageService.save(state);
+    renderChecklist();
+    return;
   }
 
   const item = state.items[id];
@@ -244,13 +251,13 @@ function renderCalendar() {
   const container = document.getElementById('calendar-container');
   if (!container) return;
 
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth();
-  const todayDateStr = getLocalDateString(now);
+  const gameNow = new Date(Date.now() + 3 * 3600 * 1000);
+  const year = gameNow.getUTCFullYear();
+  const month = gameNow.getUTCMonth();
+  const todayDateStr = getGameDateString(Date.now());
 
-  const firstDay = new Date(year, month, 1).getDay();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const firstDay = new Date(Date.UTC(year, month, 1)).getUTCDay();
+  const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
   
   const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   
@@ -278,22 +285,21 @@ function renderCalendar() {
   const actTypeById = new Map(activeActs.map(a => [a.id, a.type]));
 
   for (let d = 1; d <= daysInMonth; d++) {
-    const loopDate = new Date(year, month, d);
-    const dateStr = getLocalDateString(loopDate);
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
     
     const isToday = dateStr === todayDateStr;
     const isSelected = dateStr === selectedDateString;
     
-    // Local day boundaries
-    const localStart = new Date(year, month, d, 0, 0, 0, 0).getTime();
-    const localEnd = localStart + 86400000;
+    // Game day boundaries (Starts at 21:00 UTC previous day, which is -3 hours from midnight UTC)
+    const gameStartMs = Date.UTC(year, month, d) - (3 * 3600 * 1000);
+    const gameEndMs = gameStartMs + 86400000;
     
     let hasWeekly = false;
     let hasThreeDay = false;
     
     // Check item resets
     for (const [id, itemState] of Object.entries(state.items)) {
-      if (itemState.nextResetAt && itemState.nextResetAt >= localStart && itemState.nextResetAt < localEnd) {
+      if (itemState.nextResetAt && itemState.nextResetAt >= gameStartMs && itemState.nextResetAt < gameEndMs) {
         const activityType = actTypeById.get(id);
         if (activityType?.startsWith('Three_Day')) hasThreeDay = true;
         if (activityType?.startsWith('Weekly')) hasWeekly = true;
@@ -328,7 +334,7 @@ function renderChecklist() {
   const container = document.getElementById('checklist-container');
   if (!container) return;
   
-  const todayString = getLocalDateString(new Date());
+  const todayString = getGameDateString(Date.now());
   const isHistorical = selectedDateString !== todayString;
   const historyData = state.history[selectedDateString] || {};
   
@@ -350,7 +356,7 @@ function renderChecklist() {
   if (isHistorical) {
     html += `
       <div style="margin-bottom: 1rem; text-align: center; color: var(--warning-color); font-weight: 600; font-size: 0.875rem;">
-        Viewing Historical Data (Read-Only)
+        Viewing Historical Data
       </div>
     `;
   }
@@ -376,11 +382,11 @@ function renderChecklist() {
     
     group.items.forEach(act => {
       const isCompleted = isHistorical ? (historyData[act.id] || false) : (state.items[act.id]?.completed || false);
-      const disabledAttr = isHistorical ? 'disabled' : '';
+      const disabledAttr = '';
       const displayName = state.customNames?.[act.id] || act.name;
       
       html += `
-        <label class="checklist-item ${isHistorical ? 'read-only' : ''}">
+        <label class="checklist-item">
           <input type="checkbox" class="item-checkbox" data-id="${act.id}" ${isCompleted ? 'checked' : ''} ${disabledAttr} />
           <div class="checkbox-custom"></div>
           <span class="item-name">${displayName}</span>
@@ -406,12 +412,11 @@ function renderChecklist() {
 function startTimers() {
   setInterval(() => {
     const now = Date.now();
-    const tzOffset = getTimezoneOffset();
     let changed = false;
     
     if (now >= state.nextResetBoundaries.daily) {
       state.items = applyResets(state.items, 'daily');
-      state.nextResetBoundaries.daily = nextDailyReset(now, tzOffset);
+      state.nextResetBoundaries.daily = nextDailyReset(now);
       changed = true;
     }
     
@@ -429,7 +434,7 @@ function startTimers() {
       
       // Auto-update selectedDateString if it was on the previous 'today'
       const oldToday = selectedDateString;
-      const newToday = getLocalDateString(new Date());
+      const newToday = getGameDateString(Date.now());
       if (oldToday !== newToday) {
          selectedDateString = newToday; // keep the user on "today" automatically
       }

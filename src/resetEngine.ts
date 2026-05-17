@@ -11,20 +11,26 @@ import type { ItemState, ResetPeriod, ActivityType } from './types';
 // ---------------------------------------------------------------------------
 
 /**
- * Returns the next 00:00:00 local-time boundary as a UTC ms timestamp after `now`.
+ * Returns the next 4:00 AM Bangkok time (UTC+7) boundary as a UTC ms timestamp after `now`.
+ * 4:00 AM Bangkok time is exactly 21:00:00 UTC.
  *
- * @param now              - Current time as a Unix timestamp in ms.
- * @param timezoneOffsetMs - Local timezone offset in ms (positive = east of UTC).
- *                           Use `-new Date().getTimezoneOffset() * 60_000` for the
- *                           browser's local timezone.
+ * @param now - Current time as a Unix timestamp in ms.
  */
-export function nextDailyReset(now: number, timezoneOffsetMs: number): number {
-  // Shift `now` into local time, find the start of the next local day, then shift back.
-  const localNow = now + timezoneOffsetMs;
+export function nextDailyReset(now: number): number {
   const msPerDay = 86_400_000;
-  const startOfTodayLocal = Math.floor(localNow / msPerDay) * msPerDay;
-  const startOfNextDayLocal = startOfTodayLocal + msPerDay;
-  return startOfNextDayLocal - timezoneOffsetMs;
+  // Truncate `now` to the start of the current UTC day.
+  const startOfTodayUTC = Math.floor(now / msPerDay) * msPerDay;
+  
+  // 4:00 AM Bangkok time is 21:00 UTC.
+  const twentyOneHoursMs = 21 * 3_600_000;
+  let candidateBoundary = startOfTodayUTC + twentyOneHoursMs;
+  
+  // Ensure the boundary is strictly strictly after `now` (or at least `> now`)
+  if (candidateBoundary <= now) {
+    candidateBoundary += msPerDay;
+  }
+  
+  return candidateBoundary;
 }
 
 /**
@@ -33,9 +39,8 @@ export function nextDailyReset(now: number, timezoneOffsetMs: number): number {
 export function hasDailyResetElapsed(
   savedAt: number,
   now: number,
-  timezoneOffsetMs: number,
 ): boolean {
-  return now >= nextDailyReset(savedAt, timezoneOffsetMs);
+  return now >= nextDailyReset(savedAt);
 }
 
 // ---------------------------------------------------------------------------
