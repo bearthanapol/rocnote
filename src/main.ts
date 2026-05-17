@@ -234,6 +234,19 @@ appEl.addEventListener('click', (e) => {
   }
 });
 
+function getOffsetGameDateString(baseDateStr: string, offsetDays: number): string {
+  const parts = baseDateStr.split('-');
+  if (parts.length !== 3) return '';
+  const y = parseInt(parts[0], 10);
+  const m = parseInt(parts[1], 10);
+  const day = parseInt(parts[2], 10);
+  const d = new Date(Date.UTC(y, m - 1, day + offsetDays));
+  const year = d.getUTCFullYear();
+  const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const dStr = String(d.getUTCDate()).padStart(2, '0');
+  return `${year}-${month}-${dStr}`;
+}
+
 function renderApp() {
   appEl.innerHTML = `
     <header class="animate-fade-in">
@@ -303,6 +316,28 @@ function renderCalendar() {
         const activityType = actTypeById.get(id);
         if (activityType?.startsWith('Three_Day')) hasThreeDay = true;
         if (activityType?.startsWith('Weekly')) hasWeekly = true;
+      }
+    }
+    
+    // Check historical resets (tasks completed 7 days or 3 days prior to `dateStr`)
+    const weeklyOriginDateStr = getOffsetGameDateString(dateStr, -7);
+    const threeDayOriginDateStr = getOffsetGameDateString(dateStr, -3);
+
+    if (state.history[weeklyOriginDateStr]) {
+      for (const [id, completed] of Object.entries(state.history[weeklyOriginDateStr])) {
+        if (completed && actTypeById.get(id)?.startsWith('Weekly')) {
+          hasWeekly = true;
+          break;
+        }
+      }
+    }
+
+    if (state.history[threeDayOriginDateStr]) {
+      for (const [id, completed] of Object.entries(state.history[threeDayOriginDateStr])) {
+        if (completed && actTypeById.get(id)?.startsWith('Three_Day')) {
+          hasThreeDay = true;
+          break;
+        }
       }
     }
     
@@ -381,12 +416,50 @@ function renderChecklist() {
     `;
     
     group.items.forEach(act => {
-      const isCompleted = isHistorical ? (historyData[act.id] || false) : (state.items[act.id]?.completed || false);
-      const disabledAttr = '';
-      const displayName = state.customNames?.[act.id] || act.name;
+      const itemState = state.items[act.id];
+      const completedTodayState = itemState?.completed || false;
+      const historyCompleted = historyData[act.id] || false;
+      
+      let isCompleted = isHistorical ? historyCompleted : completedTodayState;
+      let isPending = false;
+      let disabledAttr = '';
+      let displayName = state.customNames?.[act.id] || act.name;
+
+      if (!isHistorical) {
+        // Today view logic
+        if (completedTodayState && itemState?.nextResetAt) {
+          const completedDateStr = getGameDateString(itemState.lastChangedAt);
+          if (completedDateStr !== todayString) {
+            isPending = true;
+          }
+        }
+      } else {
+        // Historical view logic
+        if (!historyCompleted) {
+          let pendingDays = 0;
+          if (act.type.startsWith('Three_Day')) pendingDays = 3;
+          if (act.type.startsWith('Weekly')) pendingDays = 6;
+          
+          if (pendingDays > 0) {
+            for (let i = 1; i <= pendingDays; i++) {
+              const checkDateStr = getOffsetGameDateString(selectedDateString, -i);
+              if (state.history[checkDateStr]?.[act.id]) {
+                isPending = true;
+                break;
+              }
+            }
+          }
+        }
+      }
+
+      if (isPending) {
+        isCompleted = true;
+        disabledAttr = 'disabled';
+        displayName += ' (Pending)';
+      }
       
       html += `
-        <label class="checklist-item">
+        <label class="checklist-item ${isPending ? 'pending-item' : ''}">
           <input type="checkbox" class="item-checkbox" data-id="${act.id}" ${isCompleted ? 'checked' : ''} ${disabledAttr} />
           <div class="checkbox-custom"></div>
           <span class="item-name">${displayName}</span>

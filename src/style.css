@@ -255,6 +255,24 @@ header p {
   border-color: transparent;
 }
 
+.checklist-item.pending-item {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.checklist-item.pending-item:hover {
+  background: rgba(255, 255, 255, 0.02);
+  border-color: transparent;
+}
+
+.checklist-item.pending-item .checkbox-custom {
+  border-color: var(--warning-color);
+}
+
+.checklist-item.pending-item input[type="checkbox"]:checked + .checkbox-custom::after {
+  background-color: var(--warning-color);
+}
+
 .checklist-item input[type="checkbox"] {
   display: none;
 }
