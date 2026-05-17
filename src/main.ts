@@ -123,9 +123,9 @@ function handleToggle(id: string) {
     if (item.completed) {
       const activityType = getActiveActivities().find(a => a.id === id)?.type;
       if (activityType?.startsWith('Three_Day')) {
-        item.nextResetAt = Date.now() + 72 * 3600 * 1000;
+        item.nextResetAt = nextDailyReset(Date.now()) + 2 * 86_400_000; // Resets on the 3rd 4AM boundary
       } else if (activityType?.startsWith('Weekly')) {
-        item.nextResetAt = Date.now() + 7 * 24 * 3600 * 1000;
+        item.nextResetAt = nextDailyReset(Date.now()) + 6 * 86_400_000; // Resets on the 7th 4AM boundary
       }
     } else {
       delete item.nextResetAt;
@@ -425,29 +425,18 @@ function renderChecklist() {
       let disabledAttr = '';
       let displayName = state.customNames?.[act.id] || act.name;
 
-      if (!isHistorical) {
-        // Today view logic
-        if (completedTodayState && itemState?.nextResetAt) {
-          const completedDateStr = getGameDateString(itemState.lastChangedAt);
-          if (completedDateStr !== todayString) {
+      // Calculate pending status based on history for BOTH Today and Historical views
+      const targetDateStr = isHistorical ? selectedDateString : todayString;
+      let pendingDays = 0;
+      if (act.type.startsWith('Three_Day')) pendingDays = 2;
+      if (act.type.startsWith('Weekly')) pendingDays = 6;
+      
+      if (pendingDays > 0) {
+        for (let i = 1; i <= pendingDays; i++) {
+          const checkDateStr = getOffsetGameDateString(targetDateStr, -i);
+          if (state.history[checkDateStr]?.[act.id]) {
             isPending = true;
-          }
-        }
-      } else {
-        // Historical view logic
-        if (!historyCompleted) {
-          let pendingDays = 0;
-          if (act.type.startsWith('Three_Day')) pendingDays = 3;
-          if (act.type.startsWith('Weekly')) pendingDays = 6;
-          
-          if (pendingDays > 0) {
-            for (let i = 1; i <= pendingDays; i++) {
-              const checkDateStr = getOffsetGameDateString(selectedDateString, -i);
-              if (state.history[checkDateStr]?.[act.id]) {
-                isPending = true;
-                break;
-              }
-            }
+            break;
           }
         }
       }
