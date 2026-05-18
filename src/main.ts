@@ -123,9 +123,9 @@ function handleToggle(id: string) {
     if (item.completed) {
       const activityType = getActiveActivities().find(a => a.id === id)?.type;
       if (activityType?.startsWith('Three_Day')) {
-        item.nextResetAt = nextDailyReset(Date.now()) + 2 * 86_400_000; // Resets on the 3rd 4AM boundary
+        item.nextResetAt = Date.now() + 72 * 3600 * 1000; // Resets after exactly 72 hours
       } else if (activityType?.startsWith('Weekly')) {
-        item.nextResetAt = nextDailyReset(Date.now()) + 6 * 86_400_000; // Resets on the 7th 4AM boundary
+        item.nextResetAt = Date.now() + 168 * 3600 * 1000; // Resets after exactly 168 hours
       }
     } else {
       delete item.nextResetAt;
@@ -425,18 +425,26 @@ function renderChecklist() {
       let disabledAttr = '';
       let displayName = state.customNames?.[act.id] || act.name;
 
-      // Calculate pending status based on history for BOTH Today and Historical views
-      const targetDateStr = isHistorical ? selectedDateString : todayString;
-      let pendingDays = 0;
-      if (act.type.startsWith('Three_Day')) pendingDays = 2;
-      if (act.type.startsWith('Weekly')) pendingDays = 6;
-      
-      if (pendingDays > 0) {
-        for (let i = 1; i <= pendingDays; i++) {
-          const checkDateStr = getOffsetGameDateString(targetDateStr, -i);
-          if (state.history[checkDateStr]?.[act.id]) {
-            isPending = true;
-            break;
+      // Calculate pending status
+      if (!isHistorical) {
+        // If it's on cooldown but NOT completed today, it's pending.
+        const completedToday = state.history[todayString]?.[act.id];
+        if (!completedToday && itemState?.nextResetAt && itemState.nextResetAt > Date.now()) {
+          isPending = true;
+        }
+      } else {
+        // Historical view: fallback to day-based approximation
+        let pendingDays = 0;
+        if (act.type.startsWith('Three_Day')) pendingDays = 2;
+        if (act.type.startsWith('Weekly')) pendingDays = 6;
+        
+        if (pendingDays > 0) {
+          for (let i = 1; i <= pendingDays; i++) {
+            const checkDateStr = getOffsetGameDateString(selectedDateString, -i);
+            if (state.history[checkDateStr]?.[act.id]) {
+              isPending = true;
+              break;
+            }
           }
         }
       }
